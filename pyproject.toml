@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "lcg-pipeline"
+version = "0.1.0"
+description = "LCG project pipeline and path management"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed on Python < 3.11 (tomllib is stdlib on 3.11+)
+legacy = ["tomli>=2.0"]
+dev    = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lcg_pipeline*"]
