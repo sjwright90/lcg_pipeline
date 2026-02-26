@@ -1,6 +1,5 @@
 """PathManager — central path and source management for an LCG task."""
 
-import inspect
 import json
 import os
 from datetime import datetime
@@ -74,7 +73,13 @@ class PathManager:
 
         from lcg_pipeline import PathManager
 
-        pm = PathManager()
+        pm = PathManager(__file__)      # standard use in a .py script
+
+        # In Jupyter / REPL — pass None, discovery starts from cwd:
+        pm = PathManager(None)
+
+        # Explicit config path (useful in tests or unusual layouts):
+        pm = PathManager(__file__, config_path="path/to/lcg.toml")
 
         # Standard directories
         pm.project      # project root (anchored by [project] dir in lcg.toml)
@@ -85,7 +90,7 @@ class PathManager:
         pm.scripts      # task/01_scripts/
         pm.received     # project/02 Received Files/
 
-        # Auto-created, script-named, dated output dirs
+        # Auto-created, script-named, dated output dirs (OutputDir objects)
         pm.output       # task/03_processed_data/{folder}/{script}/{date}/
         pm.figs_out     # task/04_figures/{folder}/{script}/{date}/
 
@@ -101,14 +106,33 @@ class PathManager:
         pm.newest("02_raw_data", "*.csv")   # most-recently-modified match
     """
 
-    def __init__(self, config_path: "str | Path | None" = None) -> None:
-        # Capture the caller's __file__ at construction time so that dated
-        # output paths are named after the *user's* script, not this module.
-        frame = inspect.stack()[1]
-        self._caller_file = Path(frame.filename).resolve()
+    def __init__(
+        self,
+        script: "str | Path | None" = None,
+        *,
+        config_path: "str | Path | None" = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        script:
+            Pass ``__file__`` from your script. Used to locate ``lcg.toml``
+            (by walking up the directory tree) and to name dated output dirs.
+            Pass ``None`` in Jupyter or interactive sessions — discovery falls
+            back to ``Path.cwd()`` and output dirs use ``"notebook"`` as the
+            script name.
+        config_path:
+            Optional explicit path to ``lcg.toml``. Overrides auto-discovery.
+        """
+        if script is not None:
+            self._caller_file: "Path | None" = Path(script).resolve()
+            start_dir = self._caller_file.parent
+        else:
+            self._caller_file = None
+            start_dir = Path.cwd()
 
         if config_path is None:
-            config_path = find_config(self._caller_file.parent)
+            config_path = find_config(start_dir)
         else:
             config_path = Path(config_path).resolve()
 
@@ -228,12 +252,16 @@ class PathManager:
         """
         Build and mkdir: ``root/{parent_folder}/{script_stem}/{YYYYMMDD}/``
 
-        The folder and script name are taken from the *calling* script so
-        that outputs are automatically organised without manual configuration.
+        Folder and script name come from the ``script`` argument passed at
+        init. Falls back to ``"notebook"`` when running interactively.
         Returns an :class:`OutputDir` so subdirectory saves are zero-friction.
         """
-        folder = self._caller_file.parent.stem
-        script = self._caller_file.stem
+        if self._caller_file is not None:
+            folder = self._caller_file.parent.stem
+            script = self._caller_file.stem
+        else:
+            folder = Path.cwd().stem
+            script = "notebook"
         date = datetime.now().strftime("%Y%m%d")
         path = root / folder / script / date
         path.mkdir(parents=True, exist_ok=True)
@@ -364,12 +392,13 @@ class PathManager:
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
+        caller = self._caller_file if self._caller_file is not None else "(interactive)"
         lines = [
             "PathManager",
             f"  config    : {self._config_path}",
             f"  project   : {self.project}",
             f"  technical : {self.technical}",
-            f"  caller    : {self._caller_file}",
+            f"  caller    : {caller}",
         ]
         paths = self._config.get("paths", {})
         if paths:

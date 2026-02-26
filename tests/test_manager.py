@@ -100,6 +100,22 @@ class TestGetNewest:
 # ---------------------------------------------------------------------------
 
 class TestPathManager:
+    def test_explicit_script_path(self, tmp_path):
+        task_root = _make_task(tmp_path)
+        # Simulate a script at task_root/01_scripts/00_clean/clean.py
+        script = task_root / "01_scripts" / "00_clean" / "clean.py"
+        script.parent.mkdir(parents=True)
+        script.touch()
+        pm = PathManager(script)
+        assert pm.technical == task_root
+
+    def test_none_script_falls_back_to_cwd(self, tmp_path):
+        task_root = _make_task(tmp_path)
+        # config_path required when script=None and cwd doesn't have lcg.toml
+        pm = PathManager(None, config_path=task_root / "lcg.toml")
+        assert pm.technical == task_root
+        assert pm._caller_file is None
+
     def test_technical_is_task_root(self, tmp_path):
         task_root = _make_task(tmp_path)
         pm = PathManager(config_path=task_root / "lcg.toml")
@@ -131,12 +147,16 @@ class TestPathManager:
         task_root = _make_task(tmp_path)
         pm = PathManager(config_path=task_root / "lcg.toml")
         out = pm.output
-        # The dated base dir is created eagerly
         assert Path(str(out)).parent.exists()
+
+    def test_output_uses_notebook_when_no_script(self, tmp_path):
+        task_root = _make_task(tmp_path)
+        pm = PathManager(None, config_path=task_root / "lcg.toml")
+        out_str = str(pm.output)
+        assert "notebook" in out_str
 
     def test_named_path_resolution(self, tmp_path):
         task_root = _make_task(tmp_path)
-        # Append a [paths] entry to the config
         config_path = task_root / "lcg.toml"
         config_path.write_text(
             config_path.read_text() + '\n[paths]\nraw_0 = "02_raw_data/subfolder"\n'
@@ -191,7 +211,6 @@ class TestPathManager:
     def test_project_dir_not_in_path_raises(self, tmp_path):
         task_root = _make_task(tmp_path, proj="01 Test Project")
         config_path = task_root / "lcg.toml"
-        # Overwrite with a wrong project dir
         config_path.write_text(
             '[project]\ndir = "99 Wrong Project"\n[task]\ndir = "11_Test"\n'
         )

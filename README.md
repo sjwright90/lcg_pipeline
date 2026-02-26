@@ -78,10 +78,16 @@ Drop this at the top of any script inside the task folder:
 ```python
 from lcg_pipeline import PathManager
 
-pm = PathManager()
+pm = PathManager(__file__)
 ```
 
-`PathManager` discovers `lcg.toml` automatically by walking up from the script's location — no hardcoded paths needed.
+Pass `__file__` so `PathManager` knows where your script lives — it walks up from there to find `lcg.toml` and uses the script name/folder for dated output directories. No hardcoded paths needed.
+
+In a Jupyter notebook or interactive session, pass `None` instead — discovery falls back to `Path.cwd()`:
+
+```python
+pm = PathManager(None)
+```
 
 ---
 
@@ -121,8 +127,9 @@ python -m lcg_pipeline build task --dir "path/to/task" --project "01 25NEM Water
 ```python
 from lcg_pipeline import PathManager
 
-pm = PathManager()                        # auto-discovers lcg.toml from __file__
-pm = PathManager("path/to/lcg.toml")     # explicit config path
+pm = PathManager(__file__)                            # standard use in a .py script
+pm = PathManager(None)                                # Jupyter / REPL — falls back to cwd
+pm = PathManager(__file__, config_path="path/to/lcg.toml")  # explicit config override
 ```
 
 ### Core anchor paths

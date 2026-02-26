@@ -13,7 +13,9 @@ It assumes:
 # %%
 from lcg_pipeline import PathManager
 
-pm = PathManager()
+pm = PathManager(__file__)      # pass __file__ so lcg.toml discovery and
+                                # output dir naming are anchored to this script
+# In Jupyter: pm = PathManager(None)
 
 # ── Core anchors ──────────────────────────────────────────────────────────────
 print("Project root :", pm.project)
